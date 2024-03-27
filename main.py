@@ -9,7 +9,7 @@ def prepare_signature(message: bytes):
 
     signature = pyspx.shake_128f.sign(message, secret_key)
 
-    return signature
+    return signature, public_key
 
 def batch_process(path_to_files):
     if not os.path.exists(path_to_files):
@@ -18,17 +18,23 @@ def batch_process(path_to_files):
 
     for root, _, files in os.walk(path_to_files):
         for file_name in files:
-            if not (file_name.startswith('.') or file_name.endswith('.pem')):  # Reject hidden files and other PEMs
+            if not (file_name.startswith('.') or file_name.endswith('.sig')):  # Reject hidden files and other PEMs
                 file_path = os.path.join(root, file_name)
                 try:
                     with open(file_path, 'rb') as file:
                         file_bytes = file.read()
-                        sign = prepare_signature(file_bytes)
+                        sign, pk = prepare_signature(file_bytes)
 
+                        if(not pyspx.shake_128f.verify(file_bytes, sign, pk)): print("bad PK/sig")
+
+                        sig_path = file_path + '.sig'
+                        with open(sig_path, 'wb') as sig:
+                            sig.write(sign)
+                            print(f"sig generated for '{file_path}'.")
                         pem_path = file_path + '.pem'
                         with open(pem_path, 'wb') as pem:
-                            pem.write(sign)
-                            print(f"PEM generated for '{file_path}'.")
+                            pem.write(pk)
+                            print(f"pem generated for '{file_path}'.")
                 except PermissionError:
                     print(f"Permission denied for file '{file_path}'.")
                 except IOError as e:
@@ -44,3 +50,4 @@ if __name__ == '__main__':
             print('Thank you, come again!')
             break
         batch_process(folder_path)
+
